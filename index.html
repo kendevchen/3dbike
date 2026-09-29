@@ -1,0 +1,1293 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>公路車傳動實驗室</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#C9D2D8;
+  --hud:rgba(13,18,24,.74); --hud-line:rgba(255,255,255,.09); --field:rgba(255,255,255,.055);
+  --ink:#EDF2F5; --muted:#8B99A5; --faint:#5C6975;
+  --cyan:#5ED3EF; --orange:#F5A445; --on:#F2F5F7; --on-ink:#0D1319;
+  --t-kicker:#FFFFFF; --t-h1:#5ED3EF; --t-lede:rgba(255,255,255,.84); --t-shadow:0 1px 14px rgba(0,0,0,.45);
+  --sans:"Outfit","PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,"PingFang TC","Noto Sans TC",monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --page:#0B1015; --hud:rgba(11,15,20,.8); color-scheme:dark; }
+}
+:root[data-theme="dark"]{ --page:#0B1015; --hud:rgba(11,15,20,.8); color-scheme:dark; }
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;background:var(--page);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.55;overflow:hidden;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+.app{position:fixed;inset:0;background:#0c1117}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#c.hovering{cursor:pointer}
+.vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(70% 60% at 0% 0%,rgba(6,9,13,.72),transparent 70%),radial-gradient(90% 70% at 50% 120%,rgba(6,9,13,.55),transparent 70%)}
+.app[data-surface="light"] .vignette{display:none}
+.app[data-surface="light"]{--t-kicker:#101820;--t-h1:#17708A;--t-lede:#2B3943;--t-shadow:none}
+
+.hud{position:absolute;background:var(--hud);border:1px solid var(--hud-line);border-radius:14px;-webkit-backdrop-filter:blur(14px) saturate(1.15);backdrop-filter:blur(14px) saturate(1.15)}
+.lab{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;color:var(--muted);margin:0 0 6px}
+.lab em{font-style:normal;color:var(--faint);letter-spacing:.02em}
+.lab b{font-weight:500;color:var(--ink);letter-spacing:.02em}
+
+/* title block */
+.titleblock{position:absolute;left:calc(22px + env(safe-area-inset-left,0px));top:calc(18px + env(safe-area-inset-top,0px));width:332px;pointer-events:none}
+.titleblock > *{pointer-events:auto}
+.kicker{margin:0;font-weight:800;font-size:23px;line-height:1.05;color:var(--t-kicker);text-shadow:var(--t-shadow);letter-spacing:.02em}
+.titleblock h1{margin:0;font-weight:800;font-size:48px;line-height:1.02;color:var(--t-h1);letter-spacing:.02em;text-shadow:var(--t-shadow)}
+.lede{margin:12px 0 14px;color:var(--t-lede);font-size:14px;line-height:1.6;text-shadow:var(--t-shadow);pointer-events:none}
+.stats{display:flex;gap:7px;margin-bottom:10px}
+.stat{position:static;padding:7px 11px 8px;border-radius:10px;min-width:80px}
+.stat small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--muted)}
+.stat b{display:block;font-family:var(--mono);font-weight:500;font-size:16px;color:var(--cyan);font-variant-numeric:tabular-nums;white-space:nowrap}
+.app[data-mode="parts"] .stats{display:none}
+.card{position:static;padding:12px 14px;font-size:13.5px;line-height:1.62}
+.card p{margin:0}
+.card p + p{margin-top:7px}
+.card h2{margin:0 0 5px;font-size:19px;font-weight:600;color:var(--cyan)}
+.card .c{color:var(--cyan)} .card .o{color:var(--orange)}
+.card strong{color:#fff;font-weight:600}
+.card .dim{color:var(--muted);font-size:12.5px}
+.card .warn{color:var(--orange)}
+.text-btn{margin-top:9px;background:none;border:0;padding:0;color:var(--cyan);font-size:13px;text-decoration:underline;text-underline-offset:3px}
+
+/* control panel */
+.controls{right:calc(20px + env(safe-area-inset-right,0px));top:calc(18px + env(safe-area-inset-top,0px));width:452px;padding:12px 14px 13px;display:flex;flex-direction:column;gap:13px;max-height:calc(100% - 36px);overflow-y:auto}
+.row{display:flex;gap:16px;align-items:flex-start}
+.row > .field{min-width:0}
+.grow{flex:1}
+.seg{display:inline-flex;background:var(--field);border-radius:9px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:6px 11px;border-radius:7px;font-size:13.5px;font-weight:500;white-space:nowrap;color:var(--ink)}
+.seg button:hover{background:rgba(255,255,255,.07)}
+.seg button[aria-pressed="true"]{background:var(--on);color:var(--on-ink)}
+.seg.mono button{font-family:var(--mono);font-size:12.5px;padding:6px 9px}
+.app[data-mode="parts"] .gears-only{display:none}
+.swatches{display:inline-flex;gap:6px;margin-left:8px;vertical-align:middle}
+.swatches[hidden]{display:none}
+.swatches button{width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,.18);padding:0}
+.swatches button[aria-pressed="true"]{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(94,211,239,.25)}
+.tools{display:flex;gap:6px;align-items:center}
+.pill{border:0;background:var(--field);border-radius:9px;padding:7px 11px;font-size:13px;font-weight:500;color:var(--muted)}
+.pill[aria-pressed="true"]{color:var(--ink);background:rgba(94,211,239,.16)}
+.pill[aria-pressed="true"]::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--cyan);margin-right:7px;vertical-align:1px}
+.icon{width:34px;height:34px;border:0;border-radius:9px;background:var(--field);display:grid;place-items:center;padding:0}
+.icon:hover,.pill:hover{background:rgba(255,255,255,.1)}
+.icon svg{width:16px;height:16px}
+.spacer{flex:1}
+
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:3px;background:rgba(255,255,255,.2);border-radius:3px}
+input[type=range]::-moz-range-track{height:3px;background:rgba(255,255,255,.2);border-radius:3px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;background:#F4F7F9;margin-top:-7px;box-shadow:0 0 0 4px rgba(94,211,239,.18),0 2px 6px rgba(0,0,0,.4)}
+input[type=range]::-moz-range-thumb{width:17px;height:17px;border:0;border-radius:50%;background:#F4F7F9;box-shadow:0 0 0 4px rgba(94,211,239,.18)}
+.ticks{display:flex;justify-content:space-between;padding:0 7px;margin-top:1px}
+.ticks i{width:1px;height:5px;background:rgba(255,255,255,.25)}
+.ticks i.x{background:var(--orange);height:7px}
+.ticks i.on{background:var(--cyan);height:8px}
+
+/* bottom panel */
+.bottom{left:calc(22px + env(safe-area-inset-left,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));padding:12px 14px 13px;max-width:min(640px,calc(100% - 44px))}
+.partlist{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
+.partlist button{border:0;background:var(--field);border-radius:8px;padding:6px 11px;font-size:13px}
+.partlist button:hover{background:rgba(255,255,255,.1)}
+.partlist button[aria-pressed="true"]{background:var(--on);color:var(--on-ink)}
+.app[data-mode="gears"] .parts-only{display:none}
+.app[data-mode="parts"] .bottom .gears-only{display:none}
+.bottom .gears-only{width:420px;max-width:100%}
+#chart{display:block;width:100%;height:132px;cursor:pointer}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:2px}
+.legend span::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:rgba(237,242,245,.75);margin-right:6px;vertical-align:0}
+.legend span.x::before{background:transparent;border:1.5px solid var(--muted)}
+.legend span.c::before{background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+
+.hint{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));padding:7px 12px;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.03em}
+
+/* floating tags */
+.tags{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.tag{position:absolute;left:0;top:0;border:0;background:none;padding:0;display:flex;flex-direction:column;align-items:center;pointer-events:auto;will-change:transform}
+.tag[hidden]{display:none}
+.tag .p{display:flex;align-items:center;gap:6px;background:rgba(10,14,19,.82);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:3px 9px 3px 7px;font-size:12px;font-weight:600;color:#F3F6F8;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.tag .p::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+.tag em{font-style:normal;font-family:var(--mono);font-weight:400;font-size:10.5px;color:var(--cyan)}
+.tag .s{width:1px;height:22px;background:linear-gradient(rgba(255,255,255,.5),rgba(255,255,255,.1))}
+.tag .d{width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px rgba(94,211,239,.3)}
+.tag:hover .p{border-color:var(--cyan)}
+.tag.sel .p{border-color:var(--cyan);background:rgba(10,30,38,.9)}
+
+.tip{position:absolute;pointer-events:none;background:rgba(10,14,19,.9);color:#fff;font-size:12.5px;padding:4px 9px;border-radius:6px;transform:translate(12px,-130%);white-space:nowrap;opacity:0;transition:opacity .12s;border:1px solid rgba(255,255,255,.12)}
+.tip.on{opacity:1}
+.helpbox{right:calc(20px + env(safe-area-inset-right,0px));width:300px;padding:14px 16px;font-size:13px;z-index:5}
+.helpbox[hidden]{display:none}
+.helpbox h3{margin:0 0 8px;font-size:14px}
+.helpbox dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 12px}
+.helpbox dt{font-family:var(--mono);font-size:11.5px;color:var(--cyan)}
+.helpbox dd{margin:0;color:var(--ink)}
+.loading{position:absolute;inset:0;display:grid;place-items:center;color:#8B99A5;font-family:var(--mono);font-size:12px;letter-spacing:.06em;background:#0c1117;z-index:9}
+
+/* phones: controls become a bottom sheet */
+@media (max-width:760px){
+  .titleblock{left:14px;top:calc(12px + env(safe-area-inset-top,0px));width:auto;right:14px}
+  .kicker{font-size:15px}
+  .titleblock h1{font-size:30px}
+  .lede{display:none}
+  .stats{margin-top:8px}
+  .stat{min-width:0;padding:5px 9px 6px}
+  .stat b{font-size:14px}
+  .controls{left:0;right:0;top:auto;bottom:0;width:auto;max-height:48%;border-radius:16px 16px 0 0;border-left:0;border-right:0;border-bottom:0;padding:12px 14px calc(14px + env(safe-area-inset-bottom,0px))}
+  .controls .card,.controls .bottom{position:static;background:none;border:0;-webkit-backdrop-filter:none;backdrop-filter:none;padding:0;max-width:none;border-radius:0}
+  .controls .card{border-top:1px solid var(--hud-line);padding-top:12px}
+  .row{flex-wrap:wrap;gap:12px}
+  .hint{display:none}
+  .bottom .gears-only{width:auto}
+  .helpbox{left:14px;right:14px;width:auto;top:auto;bottom:calc(50% + 10px)}
+}
+@media (prefers-reduced-motion: reduce){ .tip{transition:none} }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div class="app" id="app" data-mode="parts" data-surface="dark">
+  <canvas id="c" aria-label="公路車 3D 模型，可拖曳旋轉與點選零件"></canvas>
+  <div class="vignette" id="vignette"></div>
+  <div class="tags" id="tags"></div>
+  <div class="tip" id="tip"></div>
+
+  <header class="titleblock" id="titleblock">
+    <p class="kicker">公路車</p>
+    <h1>傳動實驗室</h1>
+    <p class="lede">踩一圈到底能走多遠？換檔時，鏈條、變速器和齒輪之間發生了什麼事？轉動模型，換個檔位看看。</p>
+    <div class="stats">
+      <div class="hud stat"><small>檔位</small><b id="sGear">50×15</b></div>
+      <div class="hud stat"><small>齒比</small><b id="sRatio">3.33</b></div>
+      <div class="hud stat"><small>時速</small><b id="sSpeed">38.4 km/h</b></div>
+    </div>
+    <div class="hud card" id="explain"></div>
+  </header>
+
+  <section class="hud controls" id="controls" aria-label="控制面板">
+    <div class="row">
+      <div class="field">
+        <div class="lab"><span>模式</span><em>1　2</em></div>
+        <div class="seg" id="modeSeg">
+          <button type="button" data-v="parts">零組件</button>
+          <button type="button" data-v="gears">變速模擬</button>
+        </div>
+      </div>
+      <div class="field grow">
+        <div class="lab"><span>背景</span><em>B</em></div>
+        <div><div class="seg" id="bgSeg">
+          <button type="button" data-v="room">室內場景</button>
+          <button type="button" data-v="solid">單色</button>
+        </div><div class="swatches" id="swatches" hidden></div></div>
+      </div>
+    </div>
+
+    <div class="row gears-only">
+      <div class="field">
+        <div class="lab"><span>前盤</span><em>← →</em></div>
+        <div class="seg mono" id="ringSeg"></div>
+      </div>
+      <div class="field grow">
+        <div class="lab"><span>後飛輪</span><b id="cogVal">15 齒</b></div>
+        <input type="range" id="cogRange" min="0" max="11" step="1" aria-label="後飛輪檔位，左輕右重">
+        <div class="ticks" id="ticks"></div>
+      </div>
+    </div>
+
+    <div class="row gears-only">
+      <div class="field grow">
+        <div class="lab"><span>踏頻</span><b id="cadVal">90 rpm</b></div>
+        <input type="range" id="cad" min="50" max="120" step="1" value="90" aria-label="踏頻，每分鐘轉數">
+      </div>
+      <div class="field">
+        <div class="lab"><span>大盤</span></div>
+        <div class="seg mono" id="crankSeg"></div>
+      </div>
+    </div>
+
+    <div class="row gears-only">
+      <div class="field">
+        <div class="lab"><span>飛輪規格</span></div>
+        <div class="seg mono" id="cassetteSeg"></div>
+      </div>
+    </div>
+
+    <div class="tools">
+      <button type="button" class="pill" id="labelsBtn" aria-pressed="true">標籤</button>
+      <button type="button" class="pill gears-only" id="slowBtn" aria-pressed="true">慢動作</button>
+      <span class="spacer"></span>
+      <button type="button" class="icon" id="resetBtn" aria-label="重設視角" title="重設視角（C）">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+      </button>
+      <button type="button" class="icon" id="helpBtn" aria-label="操作說明" aria-expanded="false" title="操作說明">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17h.01"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <section class="hud bottom" id="bottom">
+    <div class="parts-only">
+      <div class="lab"><span>零件清單</span><em>點選看說明</em></div>
+      <ul class="partlist" id="partlist"></ul>
+    </div>
+    <div class="gears-only">
+      <div class="lab"><span>所有檔位的速度</span><em id="chartCad">90 rpm</em></div>
+      <canvas id="chart" aria-label="各檔位速度分布圖，點圓點可換檔"></canvas>
+      <div class="legend"><span class="c">目前檔位</span><span>可用檔位</span><span class="x">交叉鏈</span></div>
+    </div>
+  </section>
+
+  <div class="hud hint">拖曳旋轉　滾輪縮放　右鍵平移</div>
+
+  <div class="hud helpbox" id="help" hidden>
+    <h3>怎麼操作</h3>
+    <dl>
+      <dt>拖曳</dt><dd>旋轉視角</dd>
+      <dt>右鍵拖曳</dt><dd>平移（手機用雙指）</dd>
+      <dt>滾輪</dt><dd>縮放（手機用雙指捏合）</dd>
+      <dt>點選</dt><dd>零件或標籤，看它的說明</dd>
+      <dt>1　2</dt><dd>零組件／變速模擬</dd>
+      <dt>↑　↓</dt><dd>加重／放輕一檔</dd>
+      <dt>←　→</dt><dd>換小盤／大盤</dd>
+      <dt>B　L　C</dt><dd>切換背景、標籤、重設視角</dd>
+    </dl>
+  </div>
+
+  <div class="loading" id="loading">載入 3D 場景中…</div>
+</div>
+
+<script>
+  setTimeout(function(){ if(!window.__bikeReady){ var l=document.getElementById('loading'); if(l) l.textContent='3D 函式庫載入失敗，請確認網路連線後重新整理頁面。'; } }, 15000);
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ---------- constants ---------- */
+const V = (x, y, z = 0) => new THREE.Vector3(x, y, z);
+const DEG = Math.PI / 180, TAU = Math.PI * 2;
+const PITCH = 0.0127;
+const pitchR = n => PITCH / (2 * Math.sin(Math.PI / n));
+const mod = (a, b) => ((a % b) + b) % b;
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const BB = V(0, 0.269), RA = V(-0.404, 0.339), FA = V(0.586, 0.339);
+const CIRC = 2.136;
+const RP = pitchR(11);           // jockey pulley pitch radius
+const CAGE = 0.085, BETA = -105 * DEG, GAP = 0.009;
+const RING_Z = { big: 0.047, small: 0.040 };
+const cogZ = j => 0.0639 - j * 0.00385;
+
+const CRANKS = { '50/34': [50, 34], '52/36': [52, 36], '53/39': [53, 39] };
+const CASSETTES = {
+  '11-28': [11,12,13,14,15,16,17,19,21,23,25,28],
+  '11-30': [11,12,13,14,15,16,17,19,21,24,27,30],
+  '11-34': [11,12,13,14,15,17,19,21,24,27,30,34]
+};
+
+const PARTS = [
+  { id:'frame', name:'車架', desc:'整台車的骨架。上管、下管、座管組成前三角，後上叉與後下叉組成後三角。三角形結構不容易變形，踩踏的力量才能確實傳到後輪。各管的角度與長度（也就是幾何）決定車子偏敏捷還是偏穩定。', target:[0.06,0.55,0], cam:[0.55,0.85,2.05] },
+  { id:'fork', name:'前叉', desc:'夾住前輪並穿過頭管，轉動把手時帶著前輪轉向。叉腳下端往前彎出的距離叫偏移量，會影響轉向的靈敏度與直線穩定性。', target:[0.5,0.5,0], cam:[1.15,0.72,0.95] },
+  { id:'wheels', name:'輪組與外胎', desc:'700C 輪框的直徑是 622 mm，套上 28 mm 外胎後，輪子轉一圈大約前進 2.136 公尺。這一頁所有速度都用這個周長計算。', tip:'輪框越高越有空力優勢，但遇到側風時比較容易被推動。', target:[0.586,0.36,0], cam:[1.2,0.62,1.25] },
+  { id:'crankset', name:'大盤', desc:'曲柄加上前方的齒盤。公路車大多是雙盤：平路與下坡用大盤，爬坡用小盤。規格寫成 50/34，就是大片 50 齒、小片 34 齒。', tip:'曲柄長度是從五通中心量到踏板軸，這台車是 172.5 mm。', target:[0,0.27,0.04], cam:[0.3,0.42,0.62] },
+  { id:'cassette', name:'飛輪', desc:'鎖在後輪花鼓上的一疊齒片，12 速就有 12 片。齒數越少越重，踩一圈跑得遠；齒數越多越輕，爬坡比較省力。', tip:'規格 11-30 代表最小片 11 齒、最大片 30 齒。', target:[-0.404,0.33,0.04], cam:[-0.25,0.43,0.46] },
+  { id:'chain', name:'鏈條', desc:'每一節長 12.7 mm（半吋），把大盤的轉動傳到飛輪。長度必須剛好：太短，大盤配最大片時會繃死；太長，小盤配最小片時會鬆垮甩動。', target:[-0.2,0.3,0.045], cam:[-0.12,0.46,0.85] },
+  { id:'rd', name:'後變速器', desc:'負責把鏈條推到不同的飛輪片上。下方兩個導輪裝在有彈簧的導輪架上，會前後擺動，把當下用不到的鏈條收起來。', tip:'到「變速模擬」切到小盤配最小片，看導輪架往後擺到底。', target:[-0.4,0.27,0.05], cam:[-0.18,0.42,0.66] },
+  { id:'fd', name:'前變速器', desc:'把鏈條在兩片齒盤之間撥來撥去。換前盤時齒比一次變化很大，通常是遇到上坡或下坡這類地形大轉變才換。', target:[-0.03,0.37,0.05], cam:[0.12,0.5,0.46] },
+  { id:'shifters', name:'變把', desc:'煞車把手兼變速撥桿。右手控制後變速器，左手控制前變速器。電子變速按一下就換檔，機械變速則靠鋼索拉動變速器。', target:[0.59,0.84,0.12], cam:[1.0,1.0,0.62] },
+  { id:'brakes', name:'碟煞', desc:'卡鉗夾住固定在花鼓上的碟盤來減速，雨天制動力也穩定。碟盤與卡鉗都裝在車子左側（非傳動側）。', tip:'鏡頭已經轉到另一側，你看到的是車子左邊。', target:[0.1,0.36,-0.04], cam:[0.25,0.7,-1.6] },
+  { id:'cockpit', name:'把手與龍頭', desc:'彎把提供好幾種握法：握上把最放鬆，握變把最常用，握下把身體最低、風阻最小。龍頭的長度與角度決定上半身的前傾程度。', target:[0.48,0.82,0], cam:[1.0,1.08,0.72] },
+  { id:'saddle', name:'座墊與座管', desc:'座墊高度是影響踩踏效率最關鍵的設定。座管可以上下調整，座墊也能前後移動，讓膝蓋與踏板的相對位置更合適。', target:[-0.2,0.92,0], cam:[0.15,1.12,0.72] },
+  { id:'pedals', name:'踏板', desc:'公路車常用卡式踏板，鞋底的扣片卡進踏板後，腳就不會在踩踏時滑開。要離開時，腳跟往外一轉就能脫出。', target:[0.05,0.28,0.06], cam:[0.35,0.42,0.6] }
+];
+const P = Object.fromEntries(PARTS.map(p => [p.id, p]));
+
+/* ---------- renderer / scene ---------- */
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+const PR = Math.min(devicePixelRatio, 1.75);
+renderer.setPixelRatio(PR);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(32, 1, 0.01, 30);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 0.22;
+controls.maxDistance = 7;
+controls.maxPolarAngle = 88 * DEG;
+
+const key = new THREE.DirectionalLight(0xffffff, 1.7);
+key.position.set(1.2, 3.2, 2.2);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.camera.left = -1.3; key.shadow.camera.right = 1.3;
+key.shadow.camera.top = 1.3; key.shadow.camera.bottom = -1.3;
+key.shadow.camera.near = 0.5; key.shadow.camera.far = 7;
+key.shadow.bias = -0.0004; key.shadow.normalBias = 0.01;
+scene.add(key);
+const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x3a3f44, 0.35);
+scene.add(hemi);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.ShadowMaterial({ opacity: 0.16 }));
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const bike = new THREE.Group();
+scene.add(bike);
+
+/* ---------- materials (one set per part so parts can fade independently) ---------- */
+const matsByPart = {};
+function M(part, opts, physical = false) {
+  const m = physical ? new THREE.MeshPhysicalMaterial(opts) : new THREE.MeshStandardMaterial(opts);
+  (matsByPart[part] ||= []).push(m);
+  return m;
+}
+const PAINT = { color: 0x1B2F92, metalness: 0.35, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 0.75 };
+const mat = {
+  frame: M('frame', PAINT, true),
+  frameDark: M('frame', { color: 0x1d2227, metalness: 0.3, roughness: 0.4 }),
+  fork: M('fork', PAINT, true),
+  forkDark: M('fork', { color: 0x1d2227, metalness: 0.3, roughness: 0.4 }),
+  tire: M('wheels', { color: 0x1b1d1f, roughness: 0.88, metalness: 0 }),
+  rim: M('wheels', { color: 0x23272b, roughness: 0.38, metalness: 0.25, side: THREE.DoubleSide }),
+  spoke: M('wheels', { color: 0x2c3136, roughness: 0.35, metalness: 0.8 }),
+  hub: M('wheels', { color: 0x2a2f34, roughness: 0.3, metalness: 0.85 }),
+  crank: M('crankset', { color: 0x2b3137, roughness: 0.32, metalness: 0.85 }),
+  ring: M('crankset', { color: 0x3a4148, roughness: 0.3, metalness: 0.9 }),
+  ringBig: M('crankset', { color: 0x30363c, roughness: 0.28, metalness: 0.9 }),
+  cog: M('cassette', { color: 0xc3c9ce, roughness: 0.25, metalness: 1 }),
+  cogDark: M('cassette', { color: 0x565e66, roughness: 0.3, metalness: 0.95 }),
+  chain: M('chain', { color: 0xffffff, roughness: 0.3, metalness: 0.95 }),
+  pin: M('chain', { color: 0xd6dbdf, roughness: 0.25, metalness: 1 }),
+  rd: M('rd', { color: 0x2b3137, roughness: 0.32, metalness: 0.8 }),
+  rdPlate: M('rd', { color: 0x9aa2a9, roughness: 0.28, metalness: 0.95 }),
+  pulley: M('rd', { color: 0x16191c, roughness: 0.6, metalness: 0.1 }),
+  fd: M('fd', { color: 0x2b3137, roughness: 0.32, metalness: 0.8 }),
+  fdPlate: M('fd', { color: 0xa9b0b6, roughness: 0.28, metalness: 0.95 }),
+  lever: M('shifters', { color: 0x1e2226, roughness: 0.55, metalness: 0.2 }),
+  hood: M('shifters', { color: 0x141618, roughness: 0.85, metalness: 0 }),
+  rotor: M('brakes', { color: 0xbcc2c7, roughness: 0.22, metalness: 1 }),
+  rotorCarrier: M('brakes', { color: 0x2b3137, roughness: 0.35, metalness: 0.85 }),
+  caliper: M('brakes', { color: 0x262b30, roughness: 0.35, metalness: 0.75 }),
+  bar: M('cockpit', { color: 0x1c2025, roughness: 0.42, metalness: 0.35 }),
+  tape: M('cockpit', { color: 0x15181b, roughness: 0.9, metalness: 0 }),
+  saddle: M('saddle', { color: 0x16191c, roughness: 0.7, metalness: 0.05 }),
+  post: M('saddle', { color: 0x1c2025, roughness: 0.4, metalness: 0.35 }),
+  rail: M('saddle', { color: 0x8c949b, roughness: 0.3, metalness: 0.9 }),
+  pedal: M('pedals', { color: 0x1a1d20, roughness: 0.5, metalness: 0.3 }),
+  pedalPlate: M('pedals', { color: 0xb9c0c6, roughness: 0.25, metalness: 1 })
+};
+
+/* ---------- geometry helpers ---------- */
+function tag(part, mesh, shadow = true) { mesh.userData.part = part; mesh.castShadow = shadow; return mesh; }
+function cyl(a, b, r1, r2, m, seg = 22) {
+  const dir = new THREE.Vector3().subVectors(b, a); const len = dir.length();
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r2 ?? r1, r1, len, seg), m);
+  mesh.position.copy(a).addScaledVector(dir, 0.5);
+  mesh.quaternion.setFromUnitVectors(V(0, 1, 0), dir.normalize());
+  return mesh;
+}
+function ball(p, r, m) { const s = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), m); s.position.copy(p); return s; }
+function rbox(w, h, d, r, m) { return new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, r), m); }
+function add(parent, part, mesh, shadow = true) { parent.add(tag(part, mesh, shadow)); return mesh; }
+function gearGeo(N, rp, holeR, depth) {
+  const s = new THREE.Shape(); const step = TAU / N;
+  const rRoot = rp - 0.0042, rTip = rp + 0.0032;
+  for (let i = 0; i < N; i++) {
+    const a = i * step;
+    const pts = [[rRoot, a - 0.5 * step], [rTip, a - 0.16 * step], [rTip, a + 0.16 * step]];
+    pts.forEach(([r, t], k) => { const x = r * Math.cos(t), y = r * Math.sin(t); (i === 0 && k === 0) ? s.moveTo(x, y) : s.lineTo(x, y); });
+  }
+  s.closePath();
+  if (holeR) { const h = new THREE.Path(); h.absarc(0, 0, holeR, 0, TAU, true); s.holes.push(h); }
+  const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: 40 });
+  g.translate(0, 0, -depth / 2);
+  return g;
+}
+function disposeGroup(g) { g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); g.clear(); }
+
+/* ---------- frame ---------- */
+{
+  const f = mat.frame;
+  const HTtop = V(0.385, 0.829), HTbot = V(0.429, 0.686), STtop = V(-0.158, 0.805);
+  add(bike, 'frame', cyl(HTbot, HTtop, 0.025, 0.021, f));
+  add(bike, 'frame', cyl(V(0.392, 0.8), V(-0.149, 0.772), 0.017, 0.015, f));
+  add(bike, 'frame', cyl(V(0.421, 0.712), V(0.01, 0.282), 0.025, 0.022, f));
+  add(bike, 'frame', cyl(BB, STtop, 0.019, 0.016, f));
+  add(bike, 'frame', cyl(V(0, 0.269, -0.044), V(0, 0.269, 0.044), 0.023, 0.023, f));
+  add(bike, 'frame', ball(V(0.392, 0.8), 0.019, f));
+  add(bike, 'frame', ball(V(0.421, 0.712), 0.024, f));
+  add(bike, 'frame', ball(V(-0.149, 0.772), 0.018, f));
+  add(bike, 'frame', ball(V(-0.139, 0.745), 0.018, f));
+  for (const s of [-1, 1]) {
+    add(bike, 'frame', cyl(V(-0.02, 0.272, s * 0.028), V(RA.x + 0.012, RA.y - 0.004, s * 0.064), 0.013, 0.008, f));
+    add(bike, 'frame', cyl(V(-0.139, 0.745, s * 0.014), V(RA.x + 0.008, RA.y + 0.014, s * 0.064), 0.009, 0.007, f));
+    const d = add(bike, 'frame', rbox(0.036, 0.032, 0.008, 0.003, mat.frameDark));
+    d.position.set(RA.x + 0.004, RA.y, s * 0.066);
+  }
+  // fork
+  const crown = add(bike, 'fork', rbox(0.05, 0.03, 0.094, 0.01, mat.fork));
+  crown.position.set(0.435, 0.668, 0); crown.rotation.z = -17 * DEG;
+  for (const s of [-1, 1]) {
+    const curve = new THREE.QuadraticBezierCurve3(V(0.438, 0.66, s * 0.036), V(0.492, 0.46, s * 0.052), V(FA.x, FA.y + 0.004, s * 0.053));
+    add(bike, 'fork', new THREE.Mesh(new THREE.TubeGeometry(curve, 30, 0.0115, 14), mat.fork));
+    const d = add(bike, 'fork', rbox(0.03, 0.03, 0.008, 0.003, mat.forkDark));
+    d.position.set(FA.x, FA.y, s * 0.055);
+  }
+}
+
+/* ---------- cockpit, shifters, saddle ---------- */
+{
+  const up = V(-0.292, 0.956);
+  const HTtop = V(0.385, 0.829);
+  add(bike, 'cockpit', cyl(HTtop, HTtop.clone().addScaledVector(up, 0.026), 0.0195, 0.0195, mat.bar));
+  add(bike, 'cockpit', cyl(V(0.376, 0.857), V(0.482, 0.869), 0.017, 0.015, mat.bar));
+  const clamp = add(bike, 'cockpit', cyl(V(0.482, 0.869, -0.03), V(0.482, 0.869, 0.03), 0.02, 0.02, mat.bar));
+  const half = [V(0.483, 0.869, 0), V(0.483, 0.869, 0.14), V(0.492, 0.869, 0.19), V(0.545, 0.874, 0.203), V(0.592, 0.848, 0.208), V(0.605, 0.79, 0.21), V(0.575, 0.748, 0.21), V(0.5, 0.748, 0.21)];
+  const pts = [...half.slice(1).reverse().map(p => V(p.x, p.y, -p.z)), ...half];
+  const barCurve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+  add(bike, 'cockpit', new THREE.Mesh(new THREE.TubeGeometry(barCurve, 220, 0.0118, 12), mat.tape));
+  for (const s of [-1, 1]) {
+    const body = add(bike, 'shifters', rbox(0.062, 0.032, 0.028, 0.012, mat.hood));
+    body.position.set(0.577, 0.884, s * 0.205); body.rotation.z = 14 * DEG;
+    const horn = add(bike, 'shifters', ball(V(0.607, 0.9, s * 0.205), 0.012, mat.hood));
+    const lever = new THREE.QuadraticBezierCurve3(V(0.603, 0.878, s * 0.205), V(0.63, 0.81, s * 0.206), V(0.596, 0.752, s * 0.21));
+    add(bike, 'shifters', new THREE.Mesh(new THREE.TubeGeometry(lever, 24, 0.0058, 10), mat.lever));
+  }
+  // seatpost + saddle
+  add(bike, 'saddle', cyl(V(-0.152, 0.785), V(-0.2025, 0.953), 0.0138, 0.0138, mat.post));
+  const cl = add(bike, 'saddle', rbox(0.04, 0.02, 0.03, 0.006, mat.post)); cl.position.set(-0.204, 0.957, 0);
+  const sh = new THREE.Shape();
+  sh.moveTo(0.14, 0);
+  sh.bezierCurveTo(0.14, 0.02, 0.07, 0.024, 0.02, 0.03);
+  sh.bezierCurveTo(-0.05, 0.05, -0.12, 0.075, -0.13, 0.06);
+  sh.bezierCurveTo(-0.14, 0.04, -0.14, -0.04, -0.13, -0.06);
+  sh.bezierCurveTo(-0.12, -0.075, -0.05, -0.05, 0.02, -0.03);
+  sh.bezierCurveTo(0.07, -0.024, 0.14, -0.02, 0.14, 0);
+  const sg = new THREE.ExtrudeGeometry(sh, { depth: 0.012, bevelEnabled: true, bevelThickness: 0.009, bevelSize: 0.008, bevelSegments: 4, curveSegments: 20 });
+  sg.rotateX(-Math.PI / 2);
+  const saddle = add(bike, 'saddle', new THREE.Mesh(sg, mat.saddle));
+  saddle.position.set(-0.215, 0.972, 0);
+  for (const s of [-1, 1]) add(bike, 'saddle', cyl(V(-0.3, 0.97, s * 0.022), V(-0.12, 0.97, s * 0.016), 0.0035, 0.0035, mat.rail, 8));
+}
+
+/* ---------- wheels, rotors, calipers ---------- */
+function buildWheel(center, isRear) {
+  const spin = new THREE.Group(); spin.position.copy(center); bike.add(spin);
+  add(spin, 'wheels', new THREE.Mesh(new THREE.TorusGeometry(0.3255, 0.0138, 18, 128), mat.tire));
+  const prof = [[0.3108, 0.0105], [0.300, 0.0126], [0.285, 0.0116], [0.272, 0.0072], [0.2675, 0], [0.272, -0.0072], [0.285, -0.0116], [0.300, -0.0126], [0.3108, -0.0105], [0.3108, 0.0105]];
+  const lg = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 128);
+  lg.rotateX(Math.PI / 2);
+  add(spin, 'wheels', new THREE.Mesh(lg, mat.rim));
+  const flZ = isRear ? [0.02, -0.034] : [0.034, -0.034];
+  add(spin, 'wheels', cyl(V(0, 0, -0.05), V(0, 0, 0.03), 0.014, 0.014, mat.hub));
+  for (const z of flZ) add(spin, 'wheels', cyl(V(0, 0, z - 0.002), V(0, 0, z + 0.002), 0.024, 0.024, mat.hub, 28));
+  const n = 24, sp = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0011, 0.0011, 1, 5), mat.spoke, n);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+  for (let i = 0; i < n; i++) {
+    const a = i / n * TAU, side = i % 2 ? flZ[0] : flZ[1];
+    const h = V(0.022 * Math.cos(a + (i % 2 ? 0.12 : -0.12)), 0.022 * Math.sin(a + (i % 2 ? 0.12 : -0.12)), side);
+    const r = V(0.269 * Math.cos(a), 0.269 * Math.sin(a), 0);
+    const d = r.clone().sub(h); const L = d.length();
+    q.setFromUnitVectors(V(0, 1, 0), d.normalize());
+    m4.compose(h.clone().lerp(r, 0.5), q, sc.set(1, L, 1));
+    sp.setMatrixAt(i, m4);
+  }
+  sp.computeBoundingSphere();
+  add(spin, 'wheels', sp, false);
+  // rotor (non-drive side)
+  const rs = new THREE.Shape(); rs.absarc(0, 0, 0.08, 0, TAU, false);
+  const inner = new THREE.Path(); inner.absarc(0, 0, 0.0655, 0, TAU, true); rs.holes.push(inner);
+  for (let i = 0; i < 20; i++) { const a = i / 20 * TAU, h = new THREE.Path(); h.absarc(0.0728 * Math.cos(a), 0.0728 * Math.sin(a), 0.0022, 0, TAU, true); rs.holes.push(h); }
+  const rg = new THREE.ExtrudeGeometry(rs, { depth: 0.0018, bevelEnabled: false, curveSegments: 64 }); rg.translate(0, 0, -0.0009);
+  const rotor = add(spin, 'brakes', new THREE.Mesh(rg, mat.rotor)); rotor.position.z = -0.047;
+  const car = add(spin, 'brakes', cyl(V(0, 0, -0.049), V(0, 0, -0.045), 0.026, 0.026, mat.rotorCarrier, 28));
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * TAU; const arm = add(spin, 'brakes', rbox(0.048, 0.008, 0.0025, 0.001, mat.rotorCarrier));
+    arm.position.set(0.045 * Math.cos(a), 0.045 * Math.sin(a), -0.047); arm.rotation.z = a + 0.25;
+  }
+  return spin;
+}
+const rearSpin = buildWheel(RA, true);
+const frontSpin = buildWheel(FA, false);
+for (const [c, ang] of [[RA, 14], [FA, 136]]) {
+  const cal = add(bike, 'brakes', rbox(0.05, 0.026, 0.034, 0.008, mat.caliper));
+  cal.position.set(c.x + 0.074 * Math.cos(ang * DEG), c.y + 0.074 * Math.sin(ang * DEG), -0.047);
+  cal.rotation.z = (ang + 90) * DEG;
+}
+
+/* ---------- cassette (rebuilt when spec changes) ---------- */
+const cassetteGroup = new THREE.Group(); rearSpin.add(cassetteGroup);
+function buildCassette(teeth) {
+  disposeGroup(cassetteGroup);
+  teeth.forEach((n, j) => {
+    const g = add(cassetteGroup, 'cassette', new THREE.Mesh(gearGeo(n, pitchR(n), 0.0168, 0.0017), j >= teeth.length - 4 ? mat.cogDark : mat.cog));
+    g.position.z = cogZ(j); g.rotation.z = j * 0.37;
+  });
+  add(cassetteGroup, 'cassette', cyl(V(0, 0, 0.018), V(0, 0, 0.067), 0.0168, 0.0168, mat.cogDark, 24));
+  add(cassetteGroup, 'cassette', cyl(V(0, 0, 0.0655), V(0, 0, 0.069), 0.0175, 0.0175, mat.cog, 24));
+}
+
+/* ---------- crankset + pedals (rebuilt when spec changes) ---------- */
+const crankGroup = new THREE.Group(); crankGroup.position.copy(BB); bike.add(crankGroup);
+const ringGroup = new THREE.Group(); crankGroup.add(ringGroup);
+{
+  add(crankGroup, 'crankset', cyl(V(0, 0, -0.074), V(0, 0, 0.074), 0.0118, 0.0118, mat.crank));
+  const cs = new THREE.Shape(); const L = 0.1725;
+  cs.moveTo(0, -0.017); cs.lineTo(L, -0.0098); cs.absarc(L, 0, 0.0098, -Math.PI / 2, Math.PI / 2, false);
+  cs.lineTo(0, 0.017); cs.absarc(0, 0, 0.017, Math.PI / 2, Math.PI * 1.5, false);
+  const cg = new THREE.ExtrudeGeometry(cs, { depth: 0.009, bevelEnabled: true, bevelThickness: 0.003, bevelSize: 0.003, bevelSegments: 3, curveSegments: 20 });
+  const armR = add(crankGroup, 'crankset', new THREE.Mesh(cg, mat.crank)); armR.position.z = 0.056;
+  const armL = add(crankGroup, 'crankset', new THREE.Mesh(cg, mat.crank)); armL.rotation.z = Math.PI; armL.position.z = -0.065;
+  add(crankGroup, 'crankset', cyl(V(0, 0, 0.041), V(0, 0, 0.056), 0.03, 0.03, mat.crank, 32));
+}
+const pedalPivots = [];
+for (const s of [1, -1]) {
+  const piv = new THREE.Group(); piv.position.set(s * 0.1725, 0, s * 0.071); crankGroup.add(piv);
+  add(piv, 'pedals', cyl(V(0, 0, 0), V(0, 0, s * 0.07), 0.0055, 0.0055, mat.pedalPlate, 12));
+  const body = add(piv, 'pedals', rbox(0.09, 0.017, 0.068, 0.007, mat.pedal)); body.position.z = s * 0.046;
+  const plate = add(piv, 'pedals', rbox(0.06, 0.004, 0.05, 0.0015, mat.pedalPlate)); plate.position.set(0.004, 0.009, s * 0.046);
+  pedalPivots.push(piv);
+}
+function buildRings(teeth) {
+  disposeGroup(ringGroup);
+  const [big, small] = teeth;
+  const rb = pitchR(big), rs = pitchR(small);
+  const gb = add(ringGroup, 'crankset', new THREE.Mesh(gearGeo(big, rb, rb - 0.021, 0.0042), mat.ringBig)); gb.position.z = RING_Z.big;
+  const gs = add(ringGroup, 'crankset', new THREE.Mesh(gearGeo(small, rs, rs - 0.013, 0.0038), mat.ring)); gs.position.z = RING_Z.small;
+  for (let i = 0; i < 4; i++) {
+    const a = (i * 90 + 45) * DEG;
+    const len = rb - 0.012;
+    const arm = add(ringGroup, 'crankset', rbox(len, 0.017, 0.006, 0.003, mat.crank));
+    arm.position.set(Math.cos(a) * len / 2, Math.sin(a) * len / 2, 0.0445); arm.rotation.z = a;
+  }
+}
+
+/* ---------- rear derailleur ---------- */
+const rd = new THREE.Group(); bike.add(rd);
+const bKnuckle = add(rd, 'rd', rbox(0.03, 0.044, 0.022, 0.008, mat.rd));
+bKnuckle.position.set(RA.x - 0.012, RA.y - 0.036, 0.079);
+const unitCyl = () => new THREE.CylinderGeometry(1, 1, 1, 14);
+const rdLink = add(rd, 'rd', new THREE.Mesh(unitCyl(), mat.rd));
+const pKnuckle = add(rd, 'rd', rbox(0.024, 0.03, 0.02, 0.007, mat.rd));
+const cageShape = new THREE.Shape();
+cageShape.absarc(0, 0, 0.016, Math.PI / 2, Math.PI * 1.5, false);
+cageShape.lineTo(CAGE, -0.014); cageShape.absarc(CAGE, 0, 0.014, -Math.PI / 2, Math.PI / 2, false);
+cageShape.lineTo(0, 0.016);
+const cageGeo = new THREE.ExtrudeGeometry(cageShape, { depth: 0.0022, bevelEnabled: false, curveSegments: 16 });
+cageGeo.translate(0, 0, -0.0011);
+const cagePlates = [0, 1].map(() => add(rd, 'rd', new THREE.Mesh(cageGeo, mat.rdPlate)));
+const pulleyGeo = gearGeo(11, RP, 0.004, 0.003);
+const upperPulley = add(rd, 'rd', new THREE.Mesh(pulleyGeo, mat.pulley));
+const lowerPulley = add(rd, 'rd', new THREE.Mesh(pulleyGeo, mat.pulley));
+function setBetween(mesh, a, b, r) {
+  const d = new THREE.Vector3().subVectors(b, a); const L = d.length();
+  mesh.position.copy(a).addScaledVector(d, 0.5);
+  mesh.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize());
+  mesh.scale.set(r, L, r);
+}
+
+/* ---------- front derailleur ---------- */
+const fd = new THREE.Group(); bike.add(fd);
+const fdMount = add(fd, 'fd', rbox(0.026, 0.034, 0.03, 0.008, mat.fd));
+const fdArm = add(fd, 'fd', new THREE.Mesh(unitCyl(), mat.fd));
+const fdPlates = [0, 1].map(() => add(fd, 'fd', rbox(0.072, 0.024, 0.0022, 0.001, mat.fdPlate)));
+
+/* ---------- chain ---------- */
+const MAXL = 200;
+const plateGeo = new RoundedBoxGeometry(PITCH * 1.12, 0.0078, 0.0058, 2, 0.0022);
+const plates = new THREE.InstancedMesh(plateGeo, mat.chain, MAXL);
+const pinGeo = new THREE.CylinderGeometry(0.0021, 0.0021, 0.0078, 8); pinGeo.rotateX(Math.PI / 2);
+const pins = new THREE.InstancedMesh(pinGeo, mat.pin, MAXL);
+for (const im of [plates, pins]) {
+  im.frustumCulled = false;
+  im.boundingSphere = new THREE.Sphere(V(-0.2, 0.3, 0.04), 0.4);
+  add(bike, 'chain', im);
+}
+const cOuter = new THREE.Color(0xc8ced3), cInner = new THREE.Color(0x4a525a);
+for (let i = 0; i < MAXL; i++) plates.setColorAt(i, i % 2 ? cInner : cOuter);
+
+/* chain path: ring -> lower pulley -> upper pulley -> cog -> ring (direction of travel) */
+function tangent(A, B) {
+  const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy), phi = Math.atan2(dy, dx);
+  const k = A.r * A.s - B.r * B.s;
+  const psi = phi - Math.acos(Math.max(-1, Math.min(1, k / L)));
+  const mx = Math.cos(psi), my = Math.sin(psi);
+  const pa = [A.x + A.r * A.s * mx, A.y + A.r * A.s * my], pb = [B.x + B.r * B.s * mx, B.y + B.r * B.s * my];
+  return { pa, pb, ta: Math.atan2(pa[1] - A.y, pa[0] - A.x), tb: Math.atan2(pb[1] - B.y, pb[0] - B.x) };
+}
+function upperPos(cogR) { const d = cogR + GAP + RP; return [RA.x + d * Math.cos(BETA), RA.y + d * Math.sin(BETA)]; }
+function buildPath(st, alpha, full) {
+  const U = upperPos(st.cogR);
+  const Lp = [U[0] + CAGE * Math.cos(alpha), U[1] + CAGE * Math.sin(alpha)];
+  const C = [
+    { x: BB.x, y: BB.y, r: st.ringR, s: -1, z: st.ringZ },
+    { x: Lp[0], y: Lp[1], r: RP, s: -1, z: st.cogZ },
+    { x: U[0], y: U[1], r: RP, s: 1, z: st.cogZ },
+    { x: RA.x, y: RA.y, r: st.cogR, s: -1, z: st.cogZ }
+  ];
+  const T = C.map((A, i) => tangent(A, C[(i + 1) % 4]));
+  const segs = []; let total = 0;
+  for (let i = 0; i < 4; i++) {
+    const A = C[i], tin = T[(i + 3) % 4].tb, tout = T[i].ta;
+    const dth = A.s * mod(A.s * (tout - tin), TAU);
+    const al = A.r * Math.abs(dth);
+    if (full) segs.push({ arc: true, c: A, t0: tin, dth, len: al, s0: total });
+    total += al;
+    const t = T[i], ll = Math.hypot(t.pb[0] - t.pa[0], t.pb[1] - t.pa[1]);
+    if (full) segs.push({ arc: false, a: t.pa, b: t.pb, za: A.z, zb: C[(i + 1) % 4].z, len: ll, s0: total });
+    total += ll;
+  }
+  return { total, segs, U, Lp };
+}
+function pathPoint(path, s, out) {
+  s = mod(s, path.total);
+  const segs = path.segs;
+  let seg = segs[segs.length - 1];
+  for (let i = 0; i < segs.length; i++) { if (s < segs[i].s0 + segs[i].len) { seg = segs[i]; break; } }
+  const u = seg.len > 0 ? (s - seg.s0) / seg.len : 0;
+  if (seg.arc) {
+    const th = seg.t0 + seg.dth * u;
+    out.set(seg.c.x + seg.c.r * Math.cos(th), seg.c.y + seg.c.r * Math.sin(th), seg.c.z);
+  } else {
+    out.set(seg.a[0] + (seg.b[0] - seg.a[0]) * u, seg.a[1] + (seg.b[1] - seg.a[1]) * u, seg.za + (seg.zb - seg.za) * u);
+  }
+  return out;
+}
+function solveAlpha(st, chainLen) {
+  let lo = -185 * DEG, hi = -25 * DEG;           // length decreases as alpha increases
+  const fLo = buildPath(st, lo).total - chainLen, fHi = buildPath(st, hi).total - chainLen;
+  if (fLo <= 0) return lo;
+  if (fHi >= 0) return hi;
+  for (let i = 0; i < 28; i++) { const mid = (lo + hi) / 2; (buildPath(st, mid).total - chainLen > 0) ? (lo = mid) : (hi = mid); }
+  return (lo + hi) / 2;
+}
+
+/* ---------- state ---------- */
+const state = { crank: '50/34', cassette: '11-30', ring: 'big', cog: 4, cadence: 90, slow: true, mode: 'parts', selected: null, bg: 'room', swatch: null, labels: true };
+try {
+  const saved = JSON.parse(localStorage.getItem('bikeLab.prefs') || '{}');
+  if (saved.bg === 'room' || saved.bg === 'solid') state.bg = saved.bg;
+  if (typeof saved.swatch === 'string') state.swatch = saved.swatch;
+  if (typeof saved.labels === 'boolean') state.labels = saved.labels;
+} catch (e) {}
+function savePrefs() { try { localStorage.setItem('bikeLab.prefs', JSON.stringify({ bg: state.bg, swatch: state.swatch, labels: state.labels })); } catch (e) {} }
+
+const cur = { ringR: 0, ringZ: 0, cogR: 0, cogZ: 0 };
+let chainLen = 1.4, nLinks = 110, chainU = 0;
+const chainAnchor = V(-0.2, 0.2, 0.045);
+const teeth = () => ({ rings: CRANKS[state.crank], cogs: CASSETTES[state.cassette] });
+function ringTeeth(r = state.ring) { return teeth().rings[r === 'big' ? 0 : 1]; }
+function target() {
+  const t = teeth();
+  return { ringR: pitchR(ringTeeth()), ringZ: RING_Z[state.ring], cogR: pitchR(t.cogs[state.cog]), cogZ: cogZ(state.cog) };
+}
+function applySpec() {
+  const t = teeth();
+  buildRings(t.rings); buildCassette(t.cogs);
+  const bigBig = { ringR: pitchR(t.rings[0]), ringZ: RING_Z.big, cogR: pitchR(t.cogs[t.cogs.length - 1]), cogZ: cogZ(t.cogs.length - 1) };
+  chainLen = buildPath(bigBig, -60 * DEG).total;
+  nLinks = Math.min(MAXL, Math.round(chainLen / PITCH / 2) * 2);
+  plates.count = pins.count = nLinks;
+  applyFocus();
+}
+
+/* ---------- per-frame drivetrain ---------- */
+const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), sclV = new THREE.Vector3(), firstV = new THREE.Vector3(), m4 = new THREE.Matrix4(), qz = new THREE.Quaternion(), sc = new THREE.Vector3(), zAxis = V(0, 0, 1);
+function updateDrivetrain(dt) {
+  const tg = target();
+  const k = reduced ? 1 : 1 - Math.exp(-dt * 11);
+  for (const key of ['ringR', 'ringZ', 'cogR', 'cogZ']) cur[key] += (tg[key] - cur[key]) * k;
+  const alpha = solveAlpha(cur, chainLen);
+  const path = buildPath(cur, alpha, true);
+
+  const cad = state.mode === 'gears' ? state.cadence * (state.slow ? 0.4 : 1) : (reduced ? 0 : 28);
+  const w = cad / 60 * TAU, v = w * cur.ringR;
+  crankGroup.rotation.z -= w * dt;
+  for (const p of pedalPivots) p.rotation.z = -crankGroup.rotation.z;
+  const ww = v / cur.cogR;
+  rearSpin.rotation.z -= ww * dt; frontSpin.rotation.z -= ww * dt;
+  upperPulley.rotation.z += v / RP * dt; lowerPulley.rotation.z -= v / RP * dt;
+
+  chainU += v * dt / (path.total / nLinks);
+  const pitch = path.total / nLinks, frac = mod(chainU, 1), base = Math.floor(chainU);
+  pathPoint(path, frac * pitch, tmpA); firstV.copy(tmpA);
+  for (let i = 0; i < nLinks; i++) {
+    if (i === nLinks - 1) tmpB.copy(firstV); else pathPoint(path, (i + 1 + frac) * pitch, tmpB);
+    qz.setFromAxisAngle(zAxis, Math.atan2(tmpB.y - tmpA.y, tmpB.x - tmpA.x));
+    const outer = mod(i + base, 2) === 0;
+    m4.compose(sc.copy(tmpA).lerp(tmpB, 0.5), qz, sclV.set(1, 1, outer ? 1 : 0.78));
+    plates.setMatrixAt(i, m4); plates.setColorAt(i, outer ? cOuter : cInner);
+    m4.compose(tmpA, qz, sclV.set(1, 1, 1)); pins.setMatrixAt(i, m4);
+    tmpA.copy(tmpB);
+  }
+  plates.instanceMatrix.needsUpdate = true; plates.instanceColor.needsUpdate = true; pins.instanceMatrix.needsUpdate = true;
+  const bottomRun = path.segs[1];
+  chainAnchor.set((bottomRun.a[0] + bottomRun.b[0]) / 2, (bottomRun.a[1] + bottomRun.b[1]) / 2, (bottomRun.za + bottomRun.zb) / 2);
+
+  const [ux, uy] = path.U, [lx, ly] = path.Lp;
+  upperPulley.position.set(ux, uy, cur.cogZ);
+  lowerPulley.position.set(lx, ly, cur.cogZ);
+  cagePlates.forEach((pl, i) => { pl.position.set(ux, uy, cur.cogZ + (i ? -0.0058 : 0.0058)); pl.rotation.z = alpha; });
+  pKnuckle.position.set(ux + 0.004, uy + 0.024, cur.cogZ + 0.012);
+  setBetween(rdLink, bKnuckle.position, pKnuckle.position, 0.0065);
+
+  const rb = pitchR(teeth().rings[0]), a = 104 * DEG, fr = rb + 0.016;
+  const fx = BB.x + fr * Math.cos(a), fy = BB.y + fr * Math.sin(a);
+  fdPlates.forEach((pl, i) => { pl.position.set(fx, fy, cur.ringZ + (i ? -0.0062 : 0.0062)); pl.rotation.z = a - Math.PI / 2; });
+  fdMount.position.set(-0.048 + (fy - 0.38) * -0.28, fy + 0.035, 0);
+  setBetween(fdArm, fdMount.position, V(fx, fy + 0.008, cur.ringZ + 0.0062), 0.004);
+}
+
+/* ---------- focus / fading ---------- */
+function applyFocus() {
+  const sel = state.selected;
+  for (const [part, list] of Object.entries(matsByPart)) {
+    const on = !sel || part === sel, glow = !!sel && part === sel;
+    for (const m of list) {
+      m.transparent = !on; m.opacity = on ? 1 : 0.1; m.depthWrite = on;
+      if (m.emissive) m.emissive.setHex(glow ? 0x061f27 : 0x000000);
+      m.needsUpdate = true;
+    }
+  }
+  bike.traverse(o => { if (o.isMesh && o.userData.part) o.castShadow = !sel || o.userData.part === sel; });
+}
+
+/* ---------- post-processing ---------- */
+const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
+const composer = new EffectComposer(renderer, rt);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.45, 0.45, 0.96);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+/* ---------- showroom interior ---------- */
+const FLOOR_Y = -0.085;
+const room = new THREE.Group(); scene.add(room);
+const roomFog = new THREE.Fog(0x0c1117, 5.5, 13);
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+const glow = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k) });
+const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+const CJK = '"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif';
+{
+  // floor: mirror underneath a semi-transparent tile layer
+  const tile = canvasTex(512, 512, (g, w, h) => {
+    const n = 4, s = w / n;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const v = 104 + Math.floor(Math.random() * 14);
+      g.fillStyle = `rgb(${v},${v + 5},${v + 10})`; g.fillRect(i * s, j * s, s, s);
+    }
+    g.strokeStyle = 'rgba(46,54,62,.6)'; g.lineWidth = 4;
+    for (let i = 0; i <= n; i++) { g.beginPath(); g.moveTo(i * s, 0); g.lineTo(i * s, h); g.stroke(); g.beginPath(); g.moveTo(0, i * s); g.lineTo(w, i * s); g.stroke(); }
+  });
+  tile.wrapS = tile.wrapT = THREE.RepeatWrapping; tile.repeat.set(7, 7);
+  const mirrorSize = Math.min(1024, Math.round(innerWidth * PR * 0.6));
+  const mirror = new Reflector(new THREE.PlaneGeometry(14, 14), { clipBias: 0.003, textureWidth: mirrorSize, textureHeight: mirrorSize, color: 0x9aa2aa });
+  mirror.rotation.x = -Math.PI / 2; mirror.position.y = FLOOR_Y; room.add(mirror);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.MeshStandardMaterial({ map: tile, roughness: 0.34, metalness: 0, transparent: true, opacity: 0.8, envMapIntensity: 0.35 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.y = FLOOR_Y + 0.0015; floor.receiveShadow = true; room.add(floor);
+
+  // display plinth under the bike
+  const plat = new THREE.Mesh(new RoundedBoxGeometry(2.3, -FLOOR_Y, 1.0, 4, 0.018), new THREE.MeshStandardMaterial({ color: 0x1f2832, roughness: 0.5, metalness: 0.35 }));
+  plat.position.y = FLOOR_Y / 2; plat.receiveShadow = true; plat.castShadow = true; room.add(plat);
+  const top = new THREE.Mesh(new THREE.PlaneGeometry(2.24, 0.94), new THREE.MeshStandardMaterial({ color: 0x2a3440, roughness: 0.62, metalness: 0.2 }));
+  top.rotation.x = -Math.PI / 2; top.position.y = 0.0006; top.receiveShadow = true; room.add(top);
+  const cyanGlow = glow(0x5ed3ef, 2.4);
+  const s1 = box(2.26, 0.004, 0.004, cyanGlow); s1.position.set(0, -0.012, 0.501); room.add(s1);
+  for (const sx of [-1, 1]) { const s2 = box(0.004, 0.004, 0.96, cyanGlow); s2.position.set(sx * 1.151, -0.012, 0); room.add(s2); }
+  const sign = canvasTex(1280, 48, (g, w, h) => {
+    g.fillStyle = '#16202a'; g.fillRect(0, 0, w, h);
+    g.font = `600 26px ${CJK}`; g.fillStyle = '#7fe0f5'; g.textBaseline = 'middle';
+    g.fillText('公路車傳動系統　12 速', 28, h / 2 + 1);
+    g.textAlign = 'right'; g.fillStyle = '#f5a445'; g.font = `500 22px ${CJK}`; g.fillText('大盤　飛輪　鏈條　變速器', w - 28, h / 2 + 1);
+  });
+  const signM = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.045), new THREE.MeshBasicMaterial({ map: sign, color: new THREE.Color(1.2, 1.2, 1.2) }));
+  signM.position.set(0, -0.045, 0.5016); room.add(signM);
+
+  // walls
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x19202a, roughness: 0.9 });
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(10, 3.6), wallMat); back.position.set(0, FLOOR_Y + 1.8, -2.6); room.add(back);
+  const slats = new THREE.InstancedMesh(new THREE.BoxGeometry(0.035, 3.5, 0.03), new THREE.MeshStandardMaterial({ color: 0x222b36, roughness: 0.7 }), 44);
+  for (let i = 0; i < 44; i++) { m4.makeTranslation(-4.9 + i * 0.225, FLOOR_Y + 1.75, -2.585); slats.setMatrixAt(i, m4); }
+  room.add(slats);
+  const warm = glow(0xffa24a, 3.2);
+  const l1 = box(10, 0.012, 0.012, warm); l1.position.set(0, 2.4, -2.57); room.add(l1);
+  const l2 = box(10, 0.008, 0.01, cyanGlow); l2.position.set(0, FLOOR_Y + 0.03, -2.57); room.add(l2);
+  const left = new THREE.Mesh(new THREE.PlaneGeometry(7, 3.6), wallMat); left.rotation.y = Math.PI / 2; left.position.set(-3.4, FLOOR_Y + 1.8, 0.9); room.add(left);
+  const l3 = box(0.012, 0.012, 7, warm); l3.position.set(-3.39, 2.4, 0.9); room.add(l3);
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.0), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xc9d8e6).multiplyScalar(1.05), fog: false }));
+  win.rotation.y = Math.PI / 2; win.position.set(-3.385, FLOOR_Y + 1.25, -0.9); room.add(win);
+  const mull = new THREE.MeshStandardMaterial({ color: 0x151a20, roughness: 0.6 });
+  for (const dz of [-1, 0, 1]) { const m = box(0.03, 2.04, 0.04, mull); m.position.set(-3.37, FLOOR_Y + 1.25, -0.9 + dz * 1.0); room.add(m); }
+  for (const dy of [-1, 1]) { const m = box(0.03, 0.04, 2.04, mull); m.position.set(-3.37, FLOOR_Y + 1.25 + dy * 1.0, -0.9); room.add(m); }
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(10, 8), new THREE.MeshStandardMaterial({ color: 0x0f141a, roughness: 1 }));
+  ceil.rotation.x = Math.PI / 2; ceil.position.set(0, 3.3, 0.8); room.add(ceil);
+  for (const z of [-1.2, 0.2, 1.6]) { const c = box(3.2, 0.01, 0.03, glow(0xfff1dc, 2.2)); c.position.set(0, 3.28, z); room.add(c); }
+
+  // posters on the back wall
+  const posterBg = g => { const gr = g.createLinearGradient(0, 0, 0, 400); gr.addColorStop(0, '#11263a'); gr.addColorStop(1, '#0b1826'); g.fillStyle = gr; g.fillRect(0, 0, 640, 400); };
+  const ink = g => { g.strokeStyle = '#8ae6f8'; g.fillStyle = '#8ae6f8'; g.lineWidth = 4; g.shadowColor = '#5ed3ef'; g.shadowBlur = 14; };
+  const title = (g, t, sub) => { g.shadowBlur = 0; g.fillStyle = '#e8f7fb'; g.font = `600 34px ${CJK}`; g.fillText(t, 36, 62); g.fillStyle = '#f5a445'; g.font = `500 24px ${CJK}`; g.fillText(sub, 36, 368); };
+  const circle = (g, x, y, r) => { g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke(); };
+  const posters = [
+    g => { posterBg(g); ink(g); circle(g, 210, 215, 105); circle(g, 470, 215, 42);
+      g.beginPath(); g.moveTo(210, 110); g.lineTo(470, 173); g.moveTo(210, 320); g.lineTo(470, 257); g.stroke();
+      title(g, '齒比 ＝ 大盤 ÷ 飛輪', '50 ÷ 15 ≈ 3.33 圈'); },
+    g => { posterBg(g); ink(g); circle(g, 160, 205, 95); circle(g, 470, 150, 48); circle(g, 452, 238, 16); circle(g, 400, 305, 16);
+      g.beginPath(); g.moveTo(160, 110); g.lineTo(470, 102); g.moveTo(160, 300); g.lineTo(398, 321); g.moveTo(416, 305); g.lineTo(438, 244); g.stroke();
+      title(g, '導輪架收起多餘的鏈條', '換檔時它會前後擺動'); },
+    g => { posterBg(g); ink(g);
+      const row = (y, xs) => xs.forEach(x => { g.beginPath(); g.arc(x, y, 9, 0, TAU); g.fill(); });
+      row(160, [250, 285, 322, 360, 400, 440, 480, 520, 560]); row(260, [90, 120, 150, 180, 210, 245, 280, 320, 360]);
+      g.globalAlpha = .35; g.fillRect(240, 130, 130, 160); g.globalAlpha = 1;
+      title(g, '大小盤的檔位會重疊', '重疊區用哪一片都可以'); }
+  ];
+  posters.forEach((draw, i) => {
+    const x = (i - 1) * 1.2;
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5625), new THREE.MeshBasicMaterial({ map: canvasTex(640, 400, draw), color: new THREE.Color(0.95, 0.95, 0.95) }));
+    p.position.set(x, 1.3, -2.555); room.add(p);
+    const fm = glow(0x5ed3ef, 1.7);
+    for (const [w, h, dx, dy] of [[0.92, 0.008, 0, 0.285], [0.92, 0.008, 0, -0.285], [0.008, 0.578, 0.46, 0], [0.008, 0.578, -0.46, 0]]) {
+      const f = box(w, h, 0.008, fm); f.position.set(x + dx, 1.3 + dy, -2.552); room.add(f);
+    }
+  });
+
+  // display cabinet with spare cogs
+  const cab = new THREE.Mesh(new RoundedBoxGeometry(1.5, 0.8, 0.46, 3, 0.02), new THREE.MeshStandardMaterial({ color: 0x1c242e, roughness: 0.55, metalness: 0.3 }));
+  cab.position.set(2.35, FLOOR_Y + 0.4, -2.2); cab.castShadow = cab.receiveShadow = true; room.add(cab);
+  const cl = box(1.46, 0.005, 0.005, warm); cl.position.set(2.35, FLOOR_Y + 0.78, -1.968); room.add(cl);
+  const metal = new THREE.MeshStandardMaterial({ color: 0xc8ced3, roughness: 0.25, metalness: 1 });
+  [[53, 1.85], [34, 2.3], [28, 2.7], [11, 3.0]].forEach(([n, x]) => {
+    const r = pitchR(n), g = new THREE.Mesh(gearGeo(n, r, Math.max(0.017, r - 0.02), 0.004), metal);
+    g.position.set(x, FLOOR_Y + 0.8 + r + 0.03, -2.2); room.add(g);
+    const st = box(0.03, 0.03, 0.05, mull); st.position.set(x, FLOOR_Y + 0.815, -2.2); room.add(st);
+  });
+
+  // low-poly plants in white planters
+  const planterM = new THREE.MeshStandardMaterial({ color: 0xc9c4ba, roughness: 0.85 });
+  const trunkM = new THREE.MeshStandardMaterial({ color: 0x5b3e2b, roughness: 0.9 });
+  const leafM = [0x5d8d3c, 0x6fa246, 0x4f7d34].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, flatShading: true }));
+  function plant(x, z, s) {
+    const g = new THREE.Group();
+    const pl = new THREE.Mesh(new RoundedBoxGeometry(0.34, 0.3, 0.34, 2, 0.015), planterM); pl.position.y = FLOOR_Y + 0.15; g.add(pl);
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.026, 0.5, 6), trunkM); tr.position.y = FLOOR_Y + 0.52; g.add(tr);
+    [[0, 0.88, 0, 0.26], [0.13, 0.78, 0.06, 0.18], [-0.12, 0.8, -0.05, 0.19]].forEach(([dx, dy, dz, r], i) => {
+      const f = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), leafM[i]); f.position.set(dx, FLOOR_Y + dy, dz); f.rotation.set(i, i * 2, 0); g.add(f);
+    });
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    g.position.set(x, 0, z); g.scale.setScalar(s); room.add(g);
+  }
+  plant(-2.1, -1.5, 1.05); plant(1.55, -1.75, 0.95); plant(-2.7, 1.2, 1.15);
+
+  const warmL = new THREE.PointLight(0xffb070, 4, 7, 2); warmL.position.set(0, 2.3, -2.2); room.add(warmL);
+  const coolL = new THREE.PointLight(0xa9c8ff, 5, 7, 2); coolL.position.set(-3.0, 1.3, -0.8); room.add(coolL);
+}
+
+const spot = new THREE.SpotLight(0xfff4e6, 38, 0, 34 * DEG, 0.65, 2);
+spot.position.set(0.9, 3.25, 1.7); spot.target.position.set(0.05, 0.3, 0);
+spot.castShadow = true; spot.shadow.mapSize.set(1024, 1024); spot.shadow.bias = -0.0004; spot.shadow.normalBias = 0.01;
+spot.shadow.camera.near = 1; spot.shadow.camera.far = 7;
+scene.add(spot, spot.target);
+
+const SWATCHES = [
+  { id: 'graphite', hex: '#1E252C', name: '石墨', light: false },
+  { id: 'navy', hex: '#122238', name: '深藍', light: false },
+  { id: 'fog', hex: '#B9C3CA', name: '霧灰', light: true },
+  { id: 'paper', hex: '#ECEFF1', name: '亮白', light: true }
+];
+const prefersDark = matchMedia('(prefers-color-scheme: dark)');
+function currentSwatch() {
+  const theme = document.documentElement.dataset.theme;
+  const dark = theme ? theme === 'dark' : prefersDark.matches;
+  return SWATCHES.find(s => s.id === state.swatch) || SWATCHES[dark ? 0 : 2];
+}
+function applyBg() {
+  const inRoom = state.bg === 'room';
+  room.visible = inRoom; ground.visible = !inRoom;
+  scene.fog = inRoom ? roomFog : null;
+  const sw = currentSwatch();
+  scene.background = new THREE.Color(inRoom ? 0x0c1117 : sw.hex);
+  scene.environmentIntensity = inRoom ? 0.5 : 1;
+  hemi.intensity = inRoom ? 0.1 : 0.35;
+  key.visible = !inRoom; spot.visible = inRoom;
+  renderer.toneMappingExposure = inRoom ? 0.95 : 1.05;
+  bloom.strength = inRoom ? 0.45 : 0.12;
+  ground.material.opacity = sw.light ? 0.18 : 0.4;
+  $('app').dataset.surface = !inRoom && sw.light ? 'light' : 'dark';
+  renderControls();
+}
+
+/* ---------- camera ---------- */
+const VIEWS = {
+  home: { target: V(0.08, 0.48, 0), cam: V(0.8, 0.92, 2.15) },
+  homeRoom: { target: V(0.0, 0.46, -0.25), cam: V(1.85, 1.55, 3.3) },
+  gears: { target: V(-0.17, 0.33, 0.04), cam: V(-0.95, 0.98, 1.62) }
+};
+const homeView = () => state.bg === 'room' ? VIEWS.homeRoom : VIEWS.home;
+const mq = matchMedia('(max-width: 760px)');
+let viewShift = 0;
+function fitted(camPos, tgt) {
+  const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+  const f = aspect < 1.25 ? Math.max(1, Math.min(2.4, 0.285 / (Math.tan(camera.fov * DEG / 2) * aspect))) : 1;
+  return tgt.clone().add(camPos.clone().sub(tgt).multiplyScalar(f));
+}
+let tween = null;
+function flyTo(view, dur = 1.0) {
+  const tgt = view.target, p1 = fitted(view.cam, tgt);
+  if (reduced) { camera.position.copy(p1); controls.target.copy(tgt); controls.update(); return; }
+  tween = { p0: camera.position.clone(), t0: controls.target.clone(), p1, t1: tgt.clone(), t: 0, dur };
+}
+controls.addEventListener('start', () => { tween = null; });
+const ease = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+function resetView() {
+  if (state.mode === 'gears') flyTo(VIEWS.gears);
+  else if (state.selected) flyTo(P[state.selected].view);
+  else flyTo(homeView());
+}
+PARTS.forEach(p => { p.targetV = V(...p.target); p.camV = V(...p.cam).sub(p.targetV).multiplyScalar(1.35).add(p.targetV); });
+for (const p of PARTS) { Object.defineProperty(p, 'view', { get() { return { target: p.targetV, cam: p.camV }; } }); }
+
+/* ---------- picking ---------- */
+const $ = id => document.getElementById(id);
+const app = $('app');
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+const tip = $('tip');
+function pick(x, y) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set((x - r.left) / r.width * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  for (const h of ray.intersectObject(bike, true)) { const p = h.object.userData.part; if (p) return p; }
+  return null;
+}
+let down = null;
+canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; closeHelp(); });
+canvas.addEventListener('pointerup', e => {
+  if (!down) return;
+  const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y); down = null;
+  if (moved > 6) return;
+  const p = pick(e.clientX, e.clientY);
+  if (p) { setMode('parts'); selectPart(p); }
+});
+let hoverQueued = null;
+canvas.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') hoverQueued = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('pointerleave', () => { hoverQueued = null; tip.classList.remove('on'); canvas.classList.remove('hovering'); });
+function doHover() {
+  if (!hoverQueued) return;
+  const { x, y } = hoverQueued; hoverQueued = null;
+  const p = pick(x, y);
+  if (p) { tip.textContent = P[p].name; tip.style.left = x + 'px'; tip.style.top = y + 'px'; tip.classList.add('on'); canvas.classList.add('hovering'); }
+  else { tip.classList.remove('on'); canvas.classList.remove('hovering'); }
+}
+
+/* ---------- floating tags ---------- */
+const TAGS = [
+  { part: 'frame', pos: () => V(0.12, 0.8, 0), modes: ['parts'] },
+  { part: 'fork', pos: () => V(0.505, 0.5, 0.055), modes: ['parts'] },
+  { part: 'wheels', sub: () => '700×28C', pos: () => V(FA.x + 0.23, FA.y + 0.23, 0), modes: ['parts'] },
+  { part: 'crankset', sub: () => state.mode === 'gears' ? `${ringTeeth()} 齒` : state.crank, pos: () => V(0.03, 0.39, 0.05), modes: ['parts', 'gears'] },
+  { part: 'cassette', sub: () => state.mode === 'gears' ? `${teeth().cogs[state.cog]} 齒` : state.cassette, pos: () => V(RA.x, RA.y + 0.075, 0.06), modes: ['parts', 'gears'] },
+  { part: 'rd', sub: () => state.mode === 'gears' ? '導輪架' : '12 速', pos: () => lowerPulley.position, modes: ['parts', 'gears'] },
+  { part: 'fd', pos: () => fdPlates[0].position, modes: ['gears'] },
+  { part: 'chain', sub: () => `${nLinks} 節`, pos: () => chainAnchor, modes: ['gears'] },
+  { part: 'shifters', pos: () => V(0.607, 0.915, 0.205), modes: ['parts'] },
+  { part: 'saddle', pos: () => V(-0.22, 0.995, 0), modes: ['parts'] },
+  { part: 'brakes', pos: () => V(RA.x + 0.07, RA.y + 0.02, -0.05), modes: [] },
+  { part: 'cockpit', pos: () => V(0.55, 0.875, 0.1), modes: [] },
+  { part: 'pedals', pos: () => V(0.1, 0.27, 0.12), modes: [] }
+];
+const tagLayer = $('tags');
+TAGS.forEach(t => {
+  const el = document.createElement('button'); el.type = 'button'; el.className = 'tag'; el.hidden = true;
+  el.innerHTML = `<span class="p">${P[t.part].name}<em></em></span><span class="s"></span><span class="d"></span>`;
+  el.addEventListener('click', () => { setMode('parts'); selectPart(state.selected === t.part ? null : t.part); });
+  tagLayer.appendChild(el); t.el = el; t.em = el.querySelector('em'); t.last = '';
+});
+const pv = new THREE.Vector3();
+const NARROW_TAGS = ['frame', 'crankset', 'cassette', 'rd', 'wheels'];
+function updateTags() {
+  const W = canvas.clientWidth, H = canvas.clientHeight, narrow = mq.matches;
+  for (const t of TAGS) {
+    let show = state.labels && (state.selected ? t.part === state.selected : t.modes.includes(state.mode));
+    if (show && narrow && state.mode === 'parts' && !state.selected && !NARROW_TAGS.includes(t.part)) show = false;
+    if (show) {
+      pv.copy(t.pos()).project(camera);
+      if (pv.z > 1 || pv.x < -1.1 || pv.x > 1.1 || pv.y < -1.1 || pv.y > 1.1) show = false;
+    }
+    if (t.el.hidden === show) t.el.hidden = !show;
+    if (!show) continue;
+    const x = (pv.x + 1) / 2 * W, y = (1 - pv.y) / 2 * H;
+    t.el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,calc(-100% + 3px))`;
+    const s = t.sub ? t.sub() : '';
+    if (s !== t.last) { t.em.textContent = s; t.em.hidden = !s; t.last = s; }
+    t.el.classList.toggle('sel', t.part === state.selected);
+  }
+}
+
+/* ---------- UI ---------- */
+const partlist = $('partlist');
+PARTS.forEach(p => {
+  const li = document.createElement('li');
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = p.name; b.dataset.part = p.id; b.setAttribute('aria-pressed', 'false');
+  b.addEventListener('click', () => selectPart(state.selected === p.id ? null : p.id));
+  li.appendChild(b); partlist.appendChild(li);
+});
+function selectPart(id) {
+  state.selected = id;
+  applyFocus();
+  partlist.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.part === id)));
+  flyTo(id ? P[id].view : homeView());
+  renderExplain();
+}
+function setMode(m) {
+  if (state.mode === m) return;
+  state.mode = m; app.dataset.mode = m;
+  if (m === 'gears') {
+    state.selected = null; applyFocus();
+    partlist.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    flyTo(VIEWS.gears);
+  } else flyTo(homeView());
+  update();
+  requestAnimationFrame(() => { layoutShift(); drawChart(); });
+}
+const speedOf = (ring, cog, cad = state.cadence) => cad * ring / cog * CIRC * 60 / 1000;
+const isCross = (ring, j, n) => (ring === 'big' && j >= n - 2) || (ring === 'small' && j <= 1);
+const fmt = (x, d = 1) => x.toFixed(d);
+function seg(el, items, current, onPick) {
+  el.innerHTML = '';
+  for (const it of items) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = it.label;
+    if (it.title) b.title = it.title;
+    b.setAttribute('aria-pressed', String(it.value === current));
+    b.addEventListener('click', () => onPick(it.value));
+    el.appendChild(b);
+  }
+}
+function setPressed(el, v) { el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v))); }
+function renderControls() {
+  const t = teeth(), n = t.cogs.length;
+  setPressed($('modeSeg'), state.mode);
+  setPressed($('bgSeg'), state.bg);
+  const sw = $('swatches'); sw.hidden = state.bg !== 'solid';
+  if (!sw.children.length) SWATCHES.forEach(s => {
+    const b = document.createElement('button'); b.type = 'button'; b.style.background = s.hex; b.title = s.name; b.setAttribute('aria-label', '背景顏色：' + s.name); b.dataset.id = s.id;
+    b.addEventListener('click', () => { state.swatch = s.id; savePrefs(); applyBg(); });
+    sw.appendChild(b);
+  });
+  const cs = currentSwatch();
+  sw.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === cs.id)));
+  seg($('ringSeg'), [{ value: 'small', label: `小盤 ${t.rings[1]}` }, { value: 'big', label: `大盤 ${t.rings[0]}` }], state.ring, v => { state.ring = v; update(); });
+  seg($('crankSeg'), Object.keys(CRANKS).map(k => ({ value: k, label: k })), state.crank, v => { state.crank = v; applySpec(); update(); });
+  seg($('cassetteSeg'), Object.keys(CASSETTES).map(k => ({ value: k, label: k })), state.cassette, v => {
+    state.cassette = v; state.cog = Math.min(state.cog, CASSETTES[v].length - 1); applySpec(); update();
+  });
+  const r = $('cogRange'); r.max = n - 1; r.value = n - 1 - state.cog;
+  $('cogVal').textContent = `${t.cogs[state.cog]} 齒`;
+  $('cadVal').textContent = `${state.cadence} rpm`;
+  const ticks = $('ticks'); ticks.innerHTML = '';
+  for (let v = 0; v < n; v++) { const j = n - 1 - v; const i = document.createElement('i'); if (j === state.cog) i.className = 'on'; else if (isCross(state.ring, j, n)) i.className = 'x'; ticks.appendChild(i); }
+  $('labelsBtn').setAttribute('aria-pressed', String(state.labels));
+  $('slowBtn').setAttribute('aria-pressed', String(state.slow));
+}
+function renderExplain() {
+  const ex = $('explain');
+  if (state.mode === 'parts') {
+    if (state.selected) {
+      const p = P[state.selected];
+      ex.innerHTML = `<h2>${p.name}</h2><p>${p.desc}</p>${p.tip ? `<p class="dim">${p.tip}</p>` : ''}<button type="button" class="text-btn" id="showAll">顯示整台車</button>`;
+      $('showAll').addEventListener('click', () => selectPart(null));
+    } else {
+      ex.innerHTML = `<p><strong>點一個零件</strong>，或點畫面上的標籤。選中的那一組會保持清楚，其他部分變成半透明。</p><p class="dim">想看齒輪怎麼換檔，切到「變速模擬」。</p>`;
+    }
+    return;
+  }
+  const t = teeth(), n = t.cogs.length;
+  const R = ringTeeth(), C = t.cogs[state.cog], ratio = R / C;
+  let html = `<p><span class="c">大盤 ${R} 齒</span>轉一圈，鏈條走過 ${R} 節，帶著<span class="o">飛輪 ${C} 齒</span>轉 <strong>${fmt(ratio, 2)} 圈</strong>，車子前進 <strong>${fmt(ratio * CIRC, 2)} m</strong>。每分鐘踩 ${state.cadence} 圈，時速 <strong>${fmt(speedOf(R, C))} km/h</strong>。</p>`;
+  if (isCross(state.ring, state.cog, n)) {
+    const other = state.ring === 'big' ? 'small' : 'big', oR = ringTeeth(other);
+    let best = 0, bd = 1e9;
+    t.cogs.forEach((c, j) => { if (isCross(other, j, n)) return; const d = Math.abs(oR / c - ratio); if (d < bd) { bd = d; best = j; } });
+    html += `<p class="warn">交叉鏈：鏈條斜拉的角度很大，容易磨損、發出噪音。改用${other === 'big' ? '大盤' : '小盤'} × ${t.cogs[best]} 齒，齒比 ${fmt(oR / t.cogs[best], 2)}，幾乎一樣。</p>`;
+  } else {
+    const hi = t.rings[0] / t.cogs[0], lo = t.rings[1] / t.cogs[n - 1];
+    html += `<p class="dim">這套 ${state.crank} 配 ${state.cassette}：最重齒比 ${fmt(hi, 2)}，最輕 ${fmt(lo, 2)}，相差 ${fmt(hi / lo, 1)} 倍。</p>`;
+  }
+  ex.innerHTML = html;
+}
+function update() {
+  const t = teeth(), R = ringTeeth(), C = t.cogs[state.cog];
+  $('sGear').textContent = `${R}×${C}`;
+  $('sRatio').textContent = fmt(R / C, 2);
+  $('sSpeed').textContent = `${fmt(speedOf(R, C))} km/h`;
+  $('chartCad').textContent = `${state.cadence} rpm`;
+  renderControls(); renderExplain(); drawChart();
+}
+$('modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setMode(b.dataset.v); });
+$('bgSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.bg = b.dataset.v; savePrefs(); applyBg(); if (state.mode === 'parts' && !state.selected) flyTo(homeView()); });
+$('cogRange').addEventListener('input', e => { state.cog = teeth().cogs.length - 1 - +e.target.value; update(); });
+$('cad').addEventListener('input', e => { state.cadence = +e.target.value; update(); });
+$('labelsBtn').addEventListener('click', () => { state.labels = !state.labels; savePrefs(); renderControls(); });
+$('slowBtn').addEventListener('click', () => { state.slow = !state.slow; renderControls(); });
+$('resetBtn').addEventListener('click', resetView);
+const help = $('help'), helpBtn = $('helpBtn');
+function closeHelp() { help.hidden = true; helpBtn.setAttribute('aria-expanded', 'false'); }
+helpBtn.addEventListener('click', () => {
+  const open = help.hidden;
+  if (open) { const r = $('controls').getBoundingClientRect(); if (!mq.matches) help.style.top = (r.bottom + 8) + 'px'; else help.style.top = ''; }
+  help.hidden = !open; helpBtn.setAttribute('aria-expanded', String(open));
+});
+addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input')) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const n = teeth().cogs.length, k = e.key.toLowerCase();
+  if (k === 'escape') { closeHelp(); if (state.selected) selectPart(null); return; }
+  if (k === '1') setMode('parts');
+  else if (k === '2') setMode('gears');
+  else if (k === 'b') { state.bg = state.bg === 'room' ? 'solid' : 'room'; savePrefs(); applyBg(); }
+  else if (k === 'l') { state.labels = !state.labels; savePrefs(); renderControls(); }
+  else if (k === 'c') resetView();
+  else if (state.mode === 'gears' && e.key === 'ArrowUp') { state.cog = Math.max(0, state.cog - 1); update(); }
+  else if (state.mode === 'gears' && e.key === 'ArrowDown') { state.cog = Math.min(n - 1, state.cog + 1); update(); }
+  else if (state.mode === 'gears' && e.key === 'ArrowLeft') { state.ring = 'small'; update(); }
+  else if (state.mode === 'gears' && e.key === 'ArrowRight') { state.ring = 'big'; update(); }
+  else return;
+  e.preventDefault();
+});
+
+/* ---------- chart ---------- */
+const chart = $('chart'); let dots = [];
+function drawChart() {
+  if (state.mode !== 'gears') return;
+  const dpr = Math.min(devicePixelRatio, 2), W = chart.clientWidth, H = chart.clientHeight;
+  if (!W) return;
+  chart.width = W * dpr; chart.height = H * dpr;
+  const g = chart.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const t = teeth(), n = t.cogs.length, all = [];
+  t.rings.forEach((R, ri) => t.cogs.forEach((C, j) => all.push({ ring: ri ? 'small' : 'big', j, v: speedOf(R, C) })));
+  const vmin = Math.floor(Math.min(...all.map(d => d.v)) / 10) * 10, vmax = Math.ceil(Math.max(...all.map(d => d.v)) / 10) * 10;
+  const L = 56, Rp = 10, x = v => L + (v - vmin) / (vmax - vmin) * (W - L - Rp);
+  const rows = { big: 30, small: 74 };
+  const mono = getComputedStyle(document.documentElement).getPropertyValue('--mono');
+  g.font = `400 10.5px ${mono}`; g.strokeStyle = 'rgba(255,255,255,.08)'; g.lineWidth = 1; g.fillStyle = '#8B99A5';
+  for (let v = vmin; v <= vmax; v += 10) {
+    const X = Math.round(x(v)) + 0.5; g.beginPath(); g.moveTo(X, 12); g.lineTo(X, 94); g.stroke();
+    g.textAlign = 'center'; g.fillText(v, X, 110);
+  }
+  g.textAlign = 'right'; g.fillText('km/h', W - 2, 126);
+  g.textAlign = 'left'; g.fillStyle = '#EDF2F5'; g.font = `500 12px ${mono}`;
+  g.fillText(`大盤 ${t.rings[0]}`, 0, rows.big + 4); g.fillText(`小盤 ${t.rings[1]}`, 0, rows.small + 4);
+  dots = [];
+  for (const d of all) {
+    const X = x(d.v), Y = rows[d.ring], cross = isCross(d.ring, d.j, n), active = d.ring === state.ring && d.j === state.cog;
+    g.beginPath(); g.arc(X, Y, active ? 6.5 : 4.5, 0, TAU);
+    if (active) { g.shadowColor = '#5ED3EF'; g.shadowBlur = 12; g.fillStyle = '#5ED3EF'; g.fill(); g.shadowBlur = 0; g.beginPath(); g.arc(X, Y, 10, 0, TAU); g.strokeStyle = 'rgba(94,211,239,.55)'; g.lineWidth = 1.5; g.stroke(); }
+    else if (cross) { g.lineWidth = 1.5; g.strokeStyle = '#8B99A5'; g.stroke(); }
+    else { g.fillStyle = 'rgba(237,242,245,.75)'; g.fill(); }
+    dots.push({ X, Y, ring: d.ring, j: d.j });
+  }
+}
+chart.addEventListener('click', e => {
+  const r = chart.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+  let best = null, bd = 16;
+  for (const d of dots) { const dd = Math.hypot(d.X - mx, d.Y - my); if (dd < bd) { bd = dd; best = d; } }
+  if (best) { state.ring = best.ring; state.cog = best.j; update(); }
+});
+
+/* ---------- layout: phone bottom sheet ---------- */
+const titleblock = $('titleblock'), controlsEl = $('controls'), bottomEl = $('bottom'), explainEl = $('explain');
+function placeNodes() {
+  if (mq.matches) { controlsEl.append(explainEl, bottomEl); bottomEl.classList.remove('hud'); explainEl.classList.remove('hud'); }
+  else { titleblock.append(explainEl); app.insertBefore(bottomEl, controlsEl.nextSibling); bottomEl.classList.add('hud'); explainEl.classList.add('hud'); }
+  layoutShift();
+}
+function layoutShift() {
+  viewShift = mq.matches ? controlsEl.getBoundingClientRect().height * 0.5 : 0;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
+  if (viewShift) camera.setViewOffset(w, h, 0, viewShift * 0.8, w, h); else camera.clearViewOffset();
+  camera.fov = w / h < 0.8 ? 46 : 32;
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+mq.addEventListener('change', () => { placeNodes(); resize(); resetView(); });
+prefersDark.addEventListener('change', () => { if (state.bg === 'solid' && !state.swatch) applyBg(); });
+
+/* ---------- resize / loop ---------- */
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  composer.setPixelRatio(PR); composer.setSize(w, h);
+  bloom.resolution.set(w / 2, h / 2);
+  layoutShift();
+  drawChart();
+}
+new ResizeObserver(resize).observe(canvas);
+
+applySpec();
+Object.assign(cur, target());
+placeNodes();
+applyBg();
+update();
+resize();
+{ const v = homeView(); camera.position.copy(fitted(v.cam, v.target)); controls.target.copy(v.target); controls.update(); }
+
+const clock = new THREE.Clock();
+function loop() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (tween) {
+    tween.t += dt; const k = ease(Math.min(1, tween.t / tween.dur));
+    camera.position.lerpVectors(tween.p0, tween.p1, k); controls.target.lerpVectors(tween.t0, tween.t1, k);
+    if (tween.t >= tween.dur) tween = null;
+  }
+  controls.update();
+  updateDrivetrain(dt);
+  doHover();
+  composer.render();
+  updateTags();
+  requestAnimationFrame(loop);
+}
+updateDrivetrain(0);
+composer.render();
+$('loading').remove();
+window.__bikeReady = true;
+loop();
+</script>
+</body>
+</html>
